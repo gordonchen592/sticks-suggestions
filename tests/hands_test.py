@@ -4,7 +4,7 @@ from sticks_suggestions.hands import Hand
 
 hand = Hand()
 
-cap = cv2.VideoCapture(2)
+cap = cv2.VideoCapture(1)
 
 while True:
     success, img = cap.read()
@@ -12,5 +12,8 @@ while True:
     img = hand.find_hands(img)
     
     cv2.imshow('image', img)
-    if cv2.waitKey(1) & 0xff == ord('q'):
+    if cv2.waitKey(1) == ord('q'):
         break
+cap.release()
+cv2.destroyAllWindows()
+hand.close_landmarker()
