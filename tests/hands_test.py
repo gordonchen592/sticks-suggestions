@@ -19,7 +19,8 @@ while True:
     
     hand.find_hands(img)
     img = hand.draw_on_image(img,"landmarks")
-    print(hand.result.handedness if hand.result else "")
+    
+    print(hand.game_position["p1"]["l"], "\t",hand.game_position["p1"]["r"])
     
     cv2.imshow('image', img)
     if cv2.waitKey(1) == ord('q'):

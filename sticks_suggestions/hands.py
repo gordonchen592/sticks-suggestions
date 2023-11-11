@@ -25,6 +25,10 @@ class Hand:
         The minimum confidence score for the hand presence score in the hand landmark detection model. In Video mode and Live stream mode, if the hand presence confidence score from the hand landmark model is below this threshold, Hand Landmarker triggers the palm detection model.
     min_tracking_confidence : float
         The minimum confidence score for the hand tracking to be considered successful. This is the bounding box IoU threshold between hands in the current frame and the last frame.
+    result : mp.tasks.vision.HandLandmarkerResult
+        The mediapipe hand landmark result containing information about the hand landmarks
+    hands : dict
+        A dictionary containing the indices in the mediapipe handlandmaker result corresponding to each hand in game
     game_position : dict
         the current game position, updated asynchronously. None if no hands detected.
         Example: {"player_1": {"left": 1, "right": 1}, "player_2": {"left": 1, "right": 1}}
@@ -45,6 +49,12 @@ class Hand:
     FONT_SIZE = 1
     FONT_THICKNESS = 1
     HANDEDNESS_TEXT_COLOR = (88, 205, 54) # vibrant green
+    FINGER_INDICES = [[mp.solutions.hands.HandLandmark.INDEX_FINGER_TIP,mp.solutions.hands.HandLandmark.INDEX_FINGER_PIP, mp.solutions.hands.HandLandmark.INDEX_FINGER_MCP],
+                      [mp.solutions.hands.HandLandmark.MIDDLE_FINGER_TIP,mp.solutions.hands.HandLandmark.MIDDLE_FINGER_PIP, mp.solutions.hands.HandLandmark.MIDDLE_FINGER_MCP],
+                      [mp.solutions.hands.HandLandmark.RING_FINGER_TIP,mp.solutions.hands.HandLandmark.RING_FINGER_PIP],
+                      [mp.solutions.hands.HandLandmark.PINKY_TIP,mp.solutions.hands.HandLandmark.PINKY_PIP,mp.solutions.hands.HandLandmark.PINKY_MCP]]
+    THUMB_INDICES = [mp.solutions.hands.HandLandmark.THUMB_TIP,mp.solutions.hands.HandLandmark.THUMB_MCP]
+    WRIST_INDEX = mp.solutions.hands.HandLandmark.WRIST
     
     def __init__(self, model_path="models/hand_landmarker.task",
                  running_mode="LIVE_STREAM",
@@ -86,7 +96,8 @@ class Hand:
         self.min_tracking_confidence = min_tracking_confidence
         
         self.result = []
-        self.game_position = {}
+        self.hands = {"p1": {"l":-1, "r":-1}, "p2": {"l":-1, "r":-1}}
+        self.game_position = {"p1": {"l":0, "r":0},"p2": {"l":0, "r":0}}
         self.createLandmarker()
 
     def createLandmarker(self):
@@ -94,7 +105,7 @@ class Hand:
         Creates a hand landmarker object for this hand instance based on the options set for this hand instance
         '''
         def calc_game_position_async(result: mp.tasks.vision.HandLandmarkerResult, output_image: mp.Image, timestamp_ms: int):
-            self.result = result
+            self.calc_game_position(result)
         
         options = mp.tasks.vision.HandLandmarkerOptions(
             base_options=mp.tasks.BaseOptions(model_asset_path=self.model_path),
@@ -131,27 +142,74 @@ class Hand:
                 a = self.landmarker.detect(mp_image)
                 self.calc_game_position(a)
 
-    def calc_game_position(self, result):
+    def calc_game_position(self, result: mp.tasks.vision.HandLandmarkerResult):
         '''
         Calculates the current game position given the mediapipe handlandmarker result data.
-        Used as the async result_callback function for mediapipe's livestream detection.
         
             Parameters:
                 result : HandLandmarkerResult
                     The current hand landmark data for the current position. 
                     The result of detecting hand landmarkers from a frame using mediapipe.
-            Returns:
-                game_position : dict
-                    The current game position. Example: 
-                    {"player_1": {"left": 1, "right": 1}, "player_2": {"left": 1, "right": 1}}
         '''
         self.result = result
         
+        # if no hands found, return None
+        if not result.hand_landmarks:
+            return None
+        
+        self.hands = {"p1": {"l":-1, "r":-1}, "p2": {"l":-1, "r":-1}}
+        
         # associate hands to players
+        #   temporarily assign first found left and ff right to p1 until fully implemented
+        for hand_index in range(len(result.hand_landmarks)):
+            if(result.handedness[hand_index][0].category_name == "Left" and self.hands["p1"]["l"] == -1):
+                self.hands["p1"]["l"] = hand_index
+            elif self.hands["p1"]["r"] == -1:
+                self.hands["p1"]["r"] = hand_index
         
-        # calculate numbers
-        
-        return self.game_position
+        # calculate number on each hand
+        tip = np.zeros(2)
+        pip = np.zeros(2)
+        m_mcp = np.zeros(2)
+        i_mcp = np.zeros(2)
+        wrist = np.zeros(2)
+        for player in self.hands:
+            for hand in self.hands[player]:
+                # if no hand detected, assume dead (0)
+                if(self.hands[player][hand] == -1):
+                    self.game_position[player][hand] = 0
+                    continue
+                
+                count = 0
+                hl = result.hand_landmarks[self.hands[player][hand]]
+                # build reference (wrist)
+                wrist[:] = hl[mp.solutions.hands.HandLandmark.WRIST].x, hl[mp.solutions.hands.HandLandmark.WRIST].y
+                
+                # count fingers
+                for finger in Hand.FINGER_INDICES:
+                    # get finger position
+                    tip[:] = hl[finger[0]].x, hl[finger[0]].y
+                    pip[:] = hl[finger[1]].x, hl[finger[1]].y
+                    
+                    # if tip farther from wrist than pip, then finger is up
+                    if np.linalg.norm(tip-wrist) > np.linalg.norm(pip-wrist):
+                        count += 1
+                
+                # count thumb
+                #   positions
+                tip[:] = hl[Hand.THUMB_INDICES[0]].x, hl[Hand.THUMB_INDICES[0]].y
+                pip[:] = hl[Hand.FINGER_INDICES[0][1]].x, hl[Hand.FINGER_INDICES[0][1]].y
+                i_mcp[:] = hl[Hand.FINGER_INDICES[0][2]].x, hl[Hand.FINGER_INDICES[0][2]].y
+                m_mcp[:] = hl[Hand.FINGER_INDICES[1][2]].x, hl[Hand.FINGER_INDICES[0][2]].y
+                
+                #   if thumb tip is on the opposite side of the index finger mcp-pip line as middle finger mcp 
+                m_mcp_sign = np.cross(i_mcp-pip,m_mcp-pip) > 0
+                tip_sign = np.cross(i_mcp-pip,tip-pip) > 0
+                if tip_sign != m_mcp_sign:
+                    count += 1
+                
+                # set value in game_position
+                self.game_position[player][hand] = count
     
     def close_landmarker(self):
         '''
