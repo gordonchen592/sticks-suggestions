@@ -39,6 +39,7 @@ class Sim_Game:
         if type == "tap":
             if (0 < self.hand_dict[self.player_turn][used_hand] < 5) and (0 < self.hand_dict[self.player_turn_next][target_hand] < 5):
                 self.hand_dict[self.player_turn_next][target_hand] += self.hand_dict[self.player_turn][used_hand]
+                self.hand_dict[self.player_turn_next][target_hand] %= 5 # max sticks per hand is 5; implements roll-over rule
                 self.player_turn, self.player_turn_next = self.player_turn_next, self.player_turn
                 return True
             else:
