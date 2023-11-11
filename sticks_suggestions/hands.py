@@ -51,7 +51,7 @@ class Hand:
     HANDEDNESS_TEXT_COLOR = (88, 205, 54) # vibrant green
     FINGER_INDICES = [[mp.solutions.hands.HandLandmark.INDEX_FINGER_TIP,mp.solutions.hands.HandLandmark.INDEX_FINGER_PIP, mp.solutions.hands.HandLandmark.INDEX_FINGER_MCP],
                       [mp.solutions.hands.HandLandmark.MIDDLE_FINGER_TIP,mp.solutions.hands.HandLandmark.MIDDLE_FINGER_PIP, mp.solutions.hands.HandLandmark.MIDDLE_FINGER_MCP],
-                      [mp.solutions.hands.HandLandmark.RING_FINGER_TIP,mp.solutions.hands.HandLandmark.RING_FINGER_PIP],
+                      [mp.solutions.hands.HandLandmark.RING_FINGER_TIP,mp.solutions.hands.HandLandmark.RING_FINGER_PIP,mp.solutions.hands.HandLandmark.RING_FINGER_MCP],
                       [mp.solutions.hands.HandLandmark.PINKY_TIP,mp.solutions.hands.HandLandmark.PINKY_PIP,mp.solutions.hands.HandLandmark.PINKY_MCP]]
     THUMB_INDICES = [mp.solutions.hands.HandLandmark.THUMB_TIP,mp.solutions.hands.HandLandmark.THUMB_MCP]
     WRIST_INDEX = mp.solutions.hands.HandLandmark.WRIST
@@ -168,11 +168,14 @@ class Hand:
                 self.hands["p1"]["r"] = hand_index
         
         # calculate number on each hand
-        tip = np.zeros(2)
-        pip = np.zeros(2)
-        m_mcp = np.zeros(2)
-        i_mcp = np.zeros(2)
-        wrist = np.zeros(2)
+        #   setup variables
+        tip = np.zeros(3)
+        mcp = np.zeros(3)
+        wrist = np.zeros(3)
+        
+        m_mcp = np.zeros(3)
+        i_mcp = np.zeros(3)
+        #   calc number on each hand for each hand
         for player in self.hands:
             for hand in self.hands[player]:
                 # if no hand detected, assume dead (0)
@@ -183,29 +186,42 @@ class Hand:
                 count = 0
                 hl = result.hand_landmarks[self.hands[player][hand]]
                 # build reference (wrist)
-                wrist[:] = hl[mp.solutions.hands.HandLandmark.WRIST].x, hl[mp.solutions.hands.HandLandmark.WRIST].y
+                wrist[:] = hl[Hand.WRIST_INDEX].x, hl[Hand.WRIST_INDEX].y, hl[Hand.WRIST_INDEX].z
                 
                 # count fingers
                 for finger in Hand.FINGER_INDICES:
                     # get finger position
-                    tip[:] = hl[finger[0]].x, hl[finger[0]].y
-                    pip[:] = hl[finger[1]].x, hl[finger[1]].y
+                    tip[:] = hl[finger[0]].x, hl[finger[0]].y, hl[finger[0]].z
+                    mcp[:] = hl[finger[1]].x, hl[finger[1]].y, hl[finger[1]].z
                     
-                    # if tip farther from wrist than pip, then finger is up
-                    if np.linalg.norm(tip-wrist) > np.linalg.norm(pip-wrist):
+                    # if angle between wrist-mcp line and mcp-tip line is greater than 135, finger is up
+                    d_wrist_mcp = wrist-mcp
+                    d_tip_mcp = tip-mcp
+                    angle = np.arccos(np.dot(d_wrist_mcp,d_tip_mcp)/(np.linalg.norm(d_wrist_mcp)*np.linalg.norm(d_tip_mcp)))
+                    if (angle > 140/180*np.pi):
                         count += 1
                 
                 # count thumb
                 #   positions
-                tip[:] = hl[Hand.THUMB_INDICES[0]].x, hl[Hand.THUMB_INDICES[0]].y
-                pip[:] = hl[Hand.FINGER_INDICES[0][1]].x, hl[Hand.FINGER_INDICES[0][1]].y
-                i_mcp[:] = hl[Hand.FINGER_INDICES[0][2]].x, hl[Hand.FINGER_INDICES[0][2]].y
-                m_mcp[:] = hl[Hand.FINGER_INDICES[1][2]].x, hl[Hand.FINGER_INDICES[0][2]].y
+                tip[:] = hl[Hand.THUMB_INDICES[0]].x, hl[Hand.THUMB_INDICES[0]].y, hl[Hand.THUMB_INDICES[0]].z
+                # pip[:] = hl[Hand.FINGER_INDICES[0][1]].x, hl[Hand.FINGER_INDICES[0][1]].y
+                i_mcp[:] = hl[Hand.FINGER_INDICES[0][2]].x, hl[Hand.FINGER_INDICES[0][2]].y, hl[Hand.FINGER_INDICES[0][2]].z
+                m_mcp[:] = hl[Hand.FINGER_INDICES[1][2]].x, hl[Hand.FINGER_INDICES[0][2]].y, hl[Hand.FINGER_INDICES[0][2]].z
                 
-                #   if thumb tip is on the opposite side of the index finger mcp-pip line as middle finger mcp 
-                m_mcp_sign = np.cross(i_mcp-pip,m_mcp-pip) > 0
-                tip_sign = np.cross(i_mcp-pip,tip-pip) > 0
-                if tip_sign != m_mcp_sign:
+                #   normal vector of reference plane
+                n_ref = np.cross(m_mcp,i_mcp)
+                #   normal vector of dividing plane
+                n_div = np.cross(n_ref,wrist-i_mcp)
+                #   solve for 4th parameter for dividing plane eqn
+                d = - np.dot(n_div,i_mcp)
+                #   sign of m_mcp
+                m_mcp_sign = (d + np.dot(m_mcp,n_div)) > 0
+                #   sign of t_tip
+                tip_loc = (d + np.dot(tip,n_div))
+                tip_sign = tip_loc >= 0
+                
+                #   if thumb tip is on the opposite side of dividing plane as middle mcp, count as up
+                if tip_sign != m_mcp_sign or tip_loc == 0:
                     count += 1
                 
                 # set value in game_position
