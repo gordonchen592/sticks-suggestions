@@ -47,7 +47,7 @@ class Hand:
     
     MARGIN = 10  # pixels
     FONT_SIZE = 1
-    FONT_THICKNESS = 1
+    FONT_THICKNESS = 2
     HANDEDNESS_TEXT_COLOR = (88, 205, 54) # vibrant green
     FINGER_INDICES = [[mp.solutions.hands.HandLandmark.INDEX_FINGER_TIP,mp.solutions.hands.HandLandmark.INDEX_FINGER_PIP, mp.solutions.hands.HandLandmark.INDEX_FINGER_MCP],
                       [mp.solutions.hands.HandLandmark.MIDDLE_FINGER_TIP,mp.solutions.hands.HandLandmark.MIDDLE_FINGER_PIP, mp.solutions.hands.HandLandmark.MIDDLE_FINGER_MCP],
@@ -233,7 +233,7 @@ class Hand:
         '''
         self.landmarker.close()
         
-    def draw_on_image(self, rgb_image, type="landmarks", detection_result: mp.tasks.vision.HandLandmarkerResult=None):
+    def draw_on_image(self, rgb_image, detection_result: mp.tasks.vision.HandLandmarkerResult=None, draw_landmarks=False, draw_count=False, draw_player=False, draw_handedness=False, draw_suggestion=False):
         '''
         Draws the requested annotation type onto the image and returns it.
         Includes a modified version of the code from Google's Mediapipe example 
@@ -246,40 +246,69 @@ class Hand:
                 return rgb_image
             detection_result = self.result
         
-        match(type):
-            case "landmarks":
-                hand_landmarks_list = detection_result.hand_landmarks
-                handedness_list = detection_result.handedness
-                annotated_image = np.copy(rgb_image)
+        hand_landmarks_list = detection_result.hand_landmarks
+        annotated_image = np.copy(rgb_image)
+        
+        if draw_landmarks:
+            handedness_list = detection_result.handedness
 
-                # Loop through the detected hands to visualize.
-                for idx in range(len(hand_landmarks_list)):
-                    hand_landmarks = hand_landmarks_list[idx]
-                    handedness = handedness_list[idx]
+            # Loop through the detected hands to visualize.
+            for idx in range(len(hand_landmarks_list)):
+                hand_landmarks = hand_landmarks_list[idx]
+                handedness = handedness_list[idx]
 
-                    # Draw the hand landmarks.
-                    hand_landmarks_proto = landmark_pb2.NormalizedLandmarkList()
-                    hand_landmarks_proto.landmark.extend([
-                    landmark_pb2.NormalizedLandmark(x=landmark.x, y=landmark.y, z=landmark.z) for landmark in hand_landmarks
-                    ])
-                    mp.solutions.drawing_utils.draw_landmarks(
-                    annotated_image,
-                    hand_landmarks_proto,
-                    mp.solutions.hands.HAND_CONNECTIONS,
-                    mp.solutions.drawing_styles.get_default_hand_landmarks_style(),
-                    mp.solutions.drawing_styles.get_default_hand_connections_style())
+                # Draw the hand landmarks.
+                hand_landmarks_proto = landmark_pb2.NormalizedLandmarkList()
+                hand_landmarks_proto.landmark.extend([
+                landmark_pb2.NormalizedLandmark(x=landmark.x, y=landmark.y, z=landmark.z) for landmark in hand_landmarks
+                ])
+                mp.solutions.drawing_utils.draw_landmarks(
+                annotated_image,
+                hand_landmarks_proto,
+                mp.solutions.hands.HAND_CONNECTIONS,
+                mp.solutions.drawing_styles.get_default_hand_landmarks_style(),
+                mp.solutions.drawing_styles.get_default_hand_connections_style())
 
-                    # Get the top left corner of the detected hand's bounding box.
+                # # Get the bottom right corner of the detected hand's bounding box.
+                # height, width, _ = annotated_image.shape
+                # x_coordinates = [landmark.x for landmark in hand_landmarks]
+                # y_coordinates = [landmark.y for landmark in hand_landmarks]
+                # text_x = int(max(x_coordinates) * width)
+                # text_y = int(max(y_coordinates) * height) + Hand.MARGIN
+
+                # # # Draw handedness (left or right hand) on the image.
+                # # cv2.putText(annotated_image, f"{handedness[0].category_name}",
+                # #             (text_x, text_y), cv2.FONT_HERSHEY_DUPLEX,
+                # #             Hand.FONT_SIZE, Hand.HANDEDNESS_TEXT_COLOR, Hand.FONT_THICKNESS, cv2.LINE_AA)
+            
+        if draw_count or draw_player:
+            # loop through hands
+            for player in self.hands:
+                for hand in self.hands[player]:
+                    # if no hand detected, continue
+                    if(self.hands[player][hand] == -1):
+                        continue
+                    try:
+                        hand_landmarks = hand_landmarks_list[self.hands[player][hand]]
+                    except:
+                        continue
+                    
+                    # Get the coordinates of the detected hand's bounding box.
                     height, width, _ = annotated_image.shape
                     x_coordinates = [landmark.x for landmark in hand_landmarks]
                     y_coordinates = [landmark.y for landmark in hand_landmarks]
-                    text_x = int(min(x_coordinates) * width)
-                    text_y = int(min(y_coordinates) * height) - Hand.MARGIN
-
-                    # Draw handedness (left or right hand) on the image.
-                    cv2.putText(annotated_image, f"{handedness[0].category_name}",
-                                (text_x, text_y), cv2.FONT_HERSHEY_DUPLEX,
+                    text_x_left = int(min(x_coordinates) * width)
+                    # text_x_right = int(max(x_coordinates) * width)
+                    text_y_top = int(min(y_coordinates) * height) - Hand.MARGIN
+                    text_y_bottom = int(max(y_coordinates) * height) + Hand.MARGIN
+                    # text_x_center = (text_x_right+text_x_left)//2
+                    text_y_center = (text_y_bottom+text_y_top)//2
+                    
+                    cv2.putText(annotated_image, 
+                                f"{player.upper() if draw_player else ''}{hand.upper() if draw_handedness else ''}{': ' if (draw_player or draw_handedness) and draw_count else ''}{self.game_position[player][hand] if draw_player else ''}",
+                                (text_x_left, text_y_center), cv2.FONT_HERSHEY_DUPLEX,
                                 Hand.FONT_SIZE, Hand.HANDEDNESS_TEXT_COLOR, Hand.FONT_THICKNESS, cv2.LINE_AA)
-            case _:
-                pass
+        if draw_suggestion:
+            pass
+            
         return annotated_image
