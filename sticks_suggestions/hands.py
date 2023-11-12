@@ -157,15 +157,34 @@ class Hand:
         if not result.hand_landmarks:
             return None
         
+        # assign hands to players
         self.hands = {"p1": {"l":-1, "r":-1}, "p2": {"l":-1, "r":-1}}
         
-        # associate hands to players
-        #   temporarily assign first found left and ff right to p1 until fully implemented
-        for hand_index in range(len(result.hand_landmarks)):
-            if(result.handedness[hand_index][0].category_name == "Left" and self.hands["p1"]["l"] == -1):
-                self.hands["p1"]["l"] = hand_index
-            elif self.hands["p1"]["r"] == -1:
-                self.hands["p1"]["r"] = hand_index
+        hands_temp = []
+        mcp = np.zeros(2)
+        wrist = np.zeros(2)
+        for hl in result.hand_landmarks:
+            wrist[:] = hl[Hand.WRIST_INDEX].x, hl[Hand.WRIST_INDEX].y
+            mcp[:] = hl[Hand.FINGER_INDICES[1][2]].x, hl[Hand.FINGER_INDICES[0][2]].y
+            angle = np.arctan2(*(wrist-mcp)[::-1])*180/np.pi
+            hands_temp.append(angle)
+        
+        # assign based on angle bounds:
+        # lh p1 bounds: [180, 360) = [-180, 0) deg standard axes == (0, 180] deg img axes
+        # rh p1 bound: (290, 430] = (-110, 70] deg standard axes == [290, 470) = [-70, 110) deg img axes
+        # note that the axes are flipped from standard (origin is top left, +x to right, +y down)
+        for hand_index in range(len(hands_temp)):
+            hl = result.hand_landmarks[hand_index]
+            if(result.handedness[hand_index][0].category_name == "Left"):
+                if 0 < hands_temp[hand_index] <= 180:
+                    self.hands["p1"]["l"] = hand_index
+                else:
+                    self.hands["p2"]["l"] = hand_index
+            else:
+                if -70 <= hands_temp[hand_index] < 110:
+                    self.hands["p1"]["r"] = hand_index
+                else:
+                    self.hands["p2"]["r"] = hand_index
         
         # calculate number on each hand
         #   setup variables
@@ -281,7 +300,7 @@ class Hand:
                 # #             (text_x, text_y), cv2.FONT_HERSHEY_DUPLEX,
                 # #             Hand.FONT_SIZE, Hand.HANDEDNESS_TEXT_COLOR, Hand.FONT_THICKNESS, cv2.LINE_AA)
             
-        if draw_count or draw_player:
+        if draw_count or draw_player or draw_handedness:
             # loop through hands
             for player in self.hands:
                 for hand in self.hands[player]:
