@@ -44,3 +44,15 @@ class Sim_Game:
                 return True
             else:
                 return False
+        elif type == "split":
+            if sum(self.hand_dict[self.player_turn].values()) > 1 and self.hand_dict[self.player_turn]["l"] != rh_val:
+                sticks_moved = self.hand_dict[self.player_turn]["r"] - rh_val
+                if sticks_moved + self.hand_dict[self.player_turn]["l"] == 0 and rh_val == 0:
+                    return False
+                self.hand_dict[self.player_turn]["r"] = rh_val
+                self.hand_dict[self.player_turn]["l"] += sticks_moved
+                return True
+            else:
+                return False
+
+
