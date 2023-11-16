@@ -30,8 +30,19 @@ class Hand:
     hands : dict
         A dictionary containing the indices in the mediapipe handlandmaker result corresponding to each hand in game
     game_position : dict
-        the current game position, updated asynchronously. None if no hands detected.
-        Example: {"player_1": {"left": 1, "right": 1}, "player_2": {"left": 1, "right": 1}}
+        the current game position, updated asynchronously
+        Example: {"p1": {"l": 1, "r": 1}, "p2": {"l": 1, "r": 1}}
+    max_buffer : int
+        the maximum game position entries to keep in the buffer
+    gp_buffer : np.array
+        the buffer containing past game position entries. Used to calculate a de-noised game position
+    gp_buffer_threshold : float
+        the number of entries in the buffer to be considered a valid de-noised game position
+    gp_buffer_index : int
+        the current index in the buffer. Used for adding entries to the buffer
+    game_position_buffered : dict
+        the game position after denoising
+        Example: {"p1": {"l": 1, "r": 1}, "p2": {"l": 1, "r": 1}}
     
     Methods
     -------
@@ -41,6 +52,10 @@ class Hand:
         Given an image, returns a dictionary containing the current game position.
     calc_game_position():
         Calculates the current game position given the mediapipe handlandmarker result data.
+    update_game_position_buffer(game_pos):
+        Updates the game position buffer at the current buffer index using the given game position dictionary.
+    update_game_position_buffer_index():
+        Increments the game position buffer index.
     close_landmarker():
         Closes the hand landmarker object.
     '''
@@ -61,7 +76,9 @@ class Hand:
                  num_hands=4,
                  min_hand_detection_confidence=0.5,
                  min_hand_presence_confidence=0.5,
-                 min_tracking_confidence=0.5):
+                 min_tracking_confidence=0.5,
+                 min_game_position_confidence=0.5,
+                 max_buffer=7):
         '''
         Constructs the attributes for the hand object
         
@@ -79,6 +96,10 @@ class Hand:
                 The minimum confidence score for the hand presence score in the hand landmark detection model. In Video mode and Live stream mode, if the hand presence confidence score from the hand landmark model is below this threshold, Hand Landmarker triggers the palm detection model. (Default is 0.5)
             min_tracking_confidence : float, optional
                 The minimum confidence score for the hand tracking to be considered successful. This is the bounding box IoU threshold between hands in the current frame and the last frame. (Default is 0.5)
+            min_game_position_confidence : float, optional
+                The minimum confidence score for updating the buffered game position. (Default is 0.5)
+            max_buffer : int, optional
+                The maximum entries kept in the buffer. (Default is 7)
             '''
         
         # init instance variables
@@ -98,6 +119,12 @@ class Hand:
         self.result = []
         self.hands = {"p1": {"l":-1, "r":-1}, "p2": {"l":-1, "r":-1}}
         self.game_position = {"p1": {"l":0, "r":0},"p2": {"l":0, "r":0}}
+        self.max_buffer = max_buffer
+        if self.max_buffer and min_game_position_confidence < 1:
+            self.gp_buffer = np.zeros((self.max_buffer,4), dtype=int)
+            self.gp_buffer_threshold = int(min_game_position_confidence*self.max_buffer)
+            self.gp_buffer_index = 0
+            self.game_position_buffered = {"p1": {"l":0, "r":0},"p2": {"l":0, "r":0}}
         self.createLandmarker()
 
     def createLandmarker(self):
@@ -155,6 +182,8 @@ class Hand:
         
         # if no hands found, return None
         if not result.hand_landmarks:
+            self.update_game_position_buffer(None)
+            self.update_game_position_buffer_index()
             return None
         
         # assign hands to players
@@ -245,14 +274,44 @@ class Hand:
                 
                 # set value in game_position
                 self.game_position[player][hand] = count
+        
+        if self.max_buffer > 0:
+            # update buffer
+            self.update_game_position_buffer(self.game_position)
+            self.update_game_position_buffer_index()
+            
+            # determine de-noised game position
+            unq, cnt = np.unique(self.gp_buffer,axis=0,return_counts=True)
+            if cnt[0] > self.gp_buffer_threshold:
+                self.game_position_buffered["p1"]["l"] = unq[0][0]
+                self.game_position_buffered["p1"]["r"] = unq[0][1]
+                self.game_position_buffered["p2"]["l"] = unq[0][2]
+                self.game_position_buffered["p2"]["r"] = unq[0][3]
+
     
+    def update_game_position_buffer(self, game_pos):
+        if game_pos:
+            self.gp_buffer[self.gp_buffer_index,0] = game_pos["p1"]["l"]
+            self.gp_buffer[self.gp_buffer_index,1] = game_pos["p1"]["r"]
+            self.gp_buffer[self.gp_buffer_index,2] = game_pos["p2"]["l"]
+            self.gp_buffer[self.gp_buffer_index,3] = game_pos["p2"]["r"]
+        else:
+            self.gp_buffer[self.gp_buffer_index] = [0,0,0,0]
+
+    def update_game_position_buffer_index(self):
+        self.gp_buffer_index += 1
+        if self.gp_buffer_index >= self.max_buffer:
+            self.gp_buffer_index = 0
+
     def close_landmarker(self):
         '''
         Closes the hand landmarker object.
         '''
         self.landmarker.close()
         
-    def draw_on_image(self, rgb_image, detection_result: mp.tasks.vision.HandLandmarkerResult=None, draw_landmarks=False, draw_count=False, draw_player=False, draw_handedness=False, draw_suggestion=False):
+    def draw_on_image(self, rgb_image, detection_result: mp.tasks.vision.HandLandmarkerResult=None, 
+                      draw_landmarks=False, draw_count=False, draw_player=False, draw_handedness=False, 
+                      draw_gp_position=False, draw_suggestion=False):
         '''
         Draws the requested annotation type onto the image and returns it.
         Includes a modified version of the code from Google's Mediapipe example 
@@ -327,6 +386,19 @@ class Hand:
                                 f"{player.upper() if draw_player else ''}{hand.upper() if draw_handedness else ''}{': ' if (draw_player or draw_handedness) and draw_count else ''}{self.game_position[player][hand] if draw_player else ''}",
                                 (text_x_left, text_y_center), cv2.FONT_HERSHEY_DUPLEX,
                                 Hand.FONT_SIZE, Hand.HANDEDNESS_TEXT_COLOR, Hand.FONT_THICKNESS, cv2.LINE_AA)
+        if draw_gp_position:
+            height, width, _ = annotated_image.shape
+            label = f"P1: L{self.game_position_buffered['p1']['l']}, R{self.game_position_buffered['p1']['r']}"
+            (label_width, label_height), baseline = cv2.getTextSize(label, cv2.FONT_HERSHEY_DUPLEX, Hand.FONT_SIZE, Hand.FONT_THICKNESS)
+            cv2.putText(annotated_image,
+                        label,
+                        (Hand.MARGIN,height//2+label_height), cv2.FONT_HERSHEY_DUPLEX,
+                        Hand.FONT_SIZE, Hand.HANDEDNESS_TEXT_COLOR, Hand.FONT_THICKNESS, cv2.LINE_AA)
+            label = f"P2: L{self.game_position_buffered['p2']['l']}, R{self.game_position_buffered['p2']['r']}"
+            cv2.putText(annotated_image,
+                        label,
+                        (Hand.MARGIN,height//2-label_height), cv2.FONT_HERSHEY_DUPLEX,
+                        Hand.FONT_SIZE, Hand.HANDEDNESS_TEXT_COLOR, Hand.FONT_THICKNESS, cv2.LINE_AA)
         if draw_suggestion:
             pass
             
