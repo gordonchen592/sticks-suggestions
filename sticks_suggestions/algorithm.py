@@ -36,6 +36,7 @@ class Sim_Game:
                 True if a valid move is made
                 False if an invalid move is made
         '''
+        # Tapping and Splitting
         if type == "tap":
             if (0 < self.hand_dict[self.player_turn][used_hand] < 5) and (0 < self.hand_dict[self.player_turn_next][target_hand] < 5):
                 self.hand_dict[self.player_turn_next][target_hand] += self.hand_dict[self.player_turn][used_hand]
