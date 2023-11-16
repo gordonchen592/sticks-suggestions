@@ -22,7 +22,7 @@ while not move[0] == 'q':
             elif move[0] == 'tap':
                 valid = sg.move(type='tap',used_hand=move[1],target_hand=move[2])
             else:
-                valid = sg.move(type='split',rh_val=move[1])
+                valid = sg.move(type='split',rh_val=int(move[1]))
             if valid:
                 break
             else:
@@ -40,7 +40,7 @@ while not move[0] == 'q':
             elif move[0] == 'tap':
                 valid = sg.move(type='tap',used_hand=move[1],target_hand=move[2])
             else:
-                valid = sg.move(type='split',rh_val=move[1])
+                valid = sg.move(type='split',rh_val=int(move[1]))
             if valid:
                 break
             else:
