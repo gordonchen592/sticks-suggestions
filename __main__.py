@@ -15,7 +15,7 @@ if __name__ == '__main__':
     game_position = None
     
     # algorithm setup
-    algo = algorithm.Algoritm()
+    algo = algorithm.Algorithm()
     suggested_move = None
     
     # camera setup
@@ -39,7 +39,7 @@ if __name__ == '__main__':
         # if game position changed, find next best move
         if not game_position == hand.game_position_buffered:
             game_position = hand.game_position_buffered
-            algo.get_best_move(game_position)
+            algo.get_best_move(game_position,'p1')
         
         # if the suggested move has changed, show new suggestion
         if not suggested_move == algo.suggested_move:
