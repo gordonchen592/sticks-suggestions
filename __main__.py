@@ -31,7 +31,7 @@ if __name__ == '__main__':
         
         # find hands, calculate the current game position, draw position on image
         hand.find_hands(img)
-        img = hand.draw_on_image(img, draw_landmarks=True, draw_count=True,draw_player=True, draw_handedness=True)
+        img = hand.draw_on_image(img, draw_count=True,draw_player=True, draw_handedness=True)
         
         # if game position changed, find next best move
         if not game_position == hand.get_current_gp():
