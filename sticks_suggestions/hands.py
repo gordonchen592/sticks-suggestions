@@ -49,9 +49,9 @@ class Hand:
     -------
     create_landmarker():
         Creates a hand landmarker object for use in detecting hand landmarks
-    find_hands(img):
+    find_hands(img, video_timestamp):
         Given an image, returns a dictionary containing the current game position.
-    calc_game_position():
+    calc_game_position(result):
         Calculates the current game position given the mediapipe handlandmarker result data.
     update_game_position_buffer(game_pos):
         Updates the game position buffer at the current buffer index using the given game position dictionary.
@@ -59,6 +59,8 @@ class Hand:
         Increments the game position buffer index.
     close_landmarker():
         Closes the hand landmarker object.
+    draw_on_image(rgb_image, detection_result, draw_landmarks, draw_count, ...)
+        Draws the requested annotation type onto the image and returns it.
     '''
     
     MARGIN = 10  # pixels

@@ -33,8 +33,8 @@ if __name__ == '__main__':
         hand.find_hands(img)
         img = hand.draw_on_image(img, draw_count=True,draw_player=True, draw_handedness=True)
         
-        # if game position changed, find next best move
-        if not game_position == hand.get_current_gp():
+        # if game position changed and not already calculating a move, find next best move
+        if not (algo.negamax_thread and algo.negamax_thread.is_alive()) and not game_position == hand.get_current_gp():
             game_position = hand.get_current_gp()
             algo.get_best_move(game_position,'p1')
         
