@@ -51,9 +51,11 @@ class Sim_Game:
             else:
                 return False
         elif type == "split":
+            # if the resulting count is more than 1 and is not a pass (switching numbers from r to l)
             if sum(self.hand_dict[self.player_turn].values()) > 1 and self.hand_dict[self.player_turn]["l"] != rh_val:
                 sticks_moved = self.hand_dict[self.player_turn]["r"] - rh_val
-                if (sticks_moved + self.hand_dict[self.player_turn]["l"])%5 == rh_val == 0 or sticks_moved + self.hand_dict[self.player_turn]["l"] < 0:
+                # if no change or both hands end up as zero or left hand requires negative value
+                if sticks_moved == 0 or (sticks_moved + self.hand_dict[self.player_turn]["l"])%5 == rh_val == 0 or sticks_moved + self.hand_dict[self.player_turn]["l"] < 0:
                     return False
                 self.hand_dict[self.player_turn]["r"] = rh_val
                 self.hand_dict[self.player_turn]["l"] += sticks_moved
@@ -81,9 +83,11 @@ class Sim_Game:
         
         # splitting
         for rh_val in range(0,5):
+            # if the resulting count is more than 1 and is not a pass (switching numbers from r to l)
             if sum(self.hand_dict[self.player_turn].values()) > 1 and self.hand_dict[self.player_turn]["l"] != rh_val:
                 sticks_moved = self.hand_dict[self.player_turn]["r"] - rh_val
-                if (sticks_moved + self.hand_dict[self.player_turn]["l"])%5 == rh_val == 0 or sticks_moved + self.hand_dict[self.player_turn]["l"] < 0:
+                # if no change or both hands end up as zero or left hand requires negative value
+                if sticks_moved == 0 or (sticks_moved + self.hand_dict[self.player_turn]["l"])%5 == rh_val == 0 or sticks_moved + self.hand_dict[self.player_turn]["l"] < 0:
                     continue
                 possible_list.append(f"split {rh_val}")
         return possible_list
@@ -96,6 +100,7 @@ class Algorithm:
         self.tt_path = tt_path
         self.max_depth = max_depth
         self.suggested_move = []
+        self.gp_for_suggested = []
         self.sg = Sim_Game()
         
         self.result_lock = threading.Lock()
@@ -104,26 +109,34 @@ class Algorithm:
         # make transposition table file and load the table
         file_path = Path(self.tt_path)
         file_path.parent.mkdir(parents=True, exist_ok=True)
+        self.tt = {}
         try:
             with open(self.tt_path, 'rb') as f:
                 self.tt = pickle.load(f)
         except:
-                self.tt = {}
+            pass
     
     def save_tt(self):
         with open(self.tt_path, 'wb') as f:
-            self.tt = pickle.dump(self.tt, f)
+            pickle.dump(self.tt, f)
     
     def get_best_move(self, hand_dict=None, player_turn=None, async_=True):
-        if hand_dict:
-            self.sg.update_position(hand_dict)
-        if player_turn:
-            self.sg.switch_turn(player_turn)
+        
         if async_:
             if not (self.negamax_thread and self.negamax_thread.is_alive()):
+                if hand_dict:
+                    self.sg.update_position(hand_dict)
+                if player_turn:
+                    self.sg.switch_turn(player_turn)
                 self.negamax_thread = threading.Thread(target=self.negamax,args=(self.sg,self.max_depth,))
                 self.negamax_thread.start()
+            else:
+                return
         else:
+            if hand_dict:
+                self.sg.update_position(hand_dict)
+            if player_turn:
+                self.sg.switch_turn(player_turn)
             self.negamax(self.sg,self.max_depth)
     
     def negamax(self, s_game:Sim_Game, depth, alpha=-inf, beta=inf, color=1):
@@ -139,6 +152,7 @@ class Algorithm:
             if tt_entry['flag'] == Algorithm.EXACT:
                 if depth == self.max_depth:
                     self.suggested_move = tt_entry['move']
+                    self.gp_for_suggested = self.sg.get_gp_as_str()
                 return tt_entry['value']
             elif tt_entry['flag'] == Algorithm.LOWERBOUND:
                 alpha = max(alpha, tt_entry['value'])
@@ -148,6 +162,7 @@ class Algorithm:
             if alpha >= beta:
                 if depth == self.max_depth:
                     self.suggested_move = tt_entry['move']
+                    self.gp_for_suggested = self.sg.get_gp_as_str()
                 return tt_entry['value']
         
         # calculate node value
@@ -180,12 +195,13 @@ class Algorithm:
             
             if best_value < value:
                 best_value = value
-                best_move = move_
+                best_move = move_.copy()
 
             if alpha < value:
                 alpha = value
                 if depth == self.max_depth:
-                    self.suggested_move = move_
+                    self.suggested_move = move_.copy()
+                    self.gp_for_suggested = self.sg.get_gp_as_str()
                 if alpha >= beta:
                     break
             

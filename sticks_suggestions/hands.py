@@ -3,6 +3,7 @@ import mediapipe as mp
 from mediapipe.framework.formats import landmark_pb2
 import numpy as np
 import time
+from copy import deepcopy
 
 class Hand:
     '''
@@ -199,18 +200,18 @@ class Hand:
             hands_temp.append(angle)
         
         # assign based on angle bounds:
-        # lh p1 bounds: [180, 360) = [-180, 0) deg standard axes == (0, 180] deg img axes
-        # rh p1 bound: (290, 430] = (-110, 70] deg standard axes == [290, 470) = [-70, 110) deg img axes
+        # lh p1 bounds: [240, 420) = [-120, 60) deg standard axes == (-60, 120] deg img axes
+        # rh p1 bound: (230, 370] = (-170, 10] deg standard axes == [350, 530) = [-10, 170) deg img axes
         # note that the axes are flipped from standard (origin is top left, +x to right, +y down)
         for hand_index in range(len(hands_temp)):
             hl = result.hand_landmarks[hand_index]
             if(result.handedness[hand_index][0].category_name == "Left"):
-                if 0 < hands_temp[hand_index] <= 180:
+                if -60 < hands_temp[hand_index] <= 120:
                     self.hands["p1"]["l"] = hand_index
                 else:
                     self.hands["p2"]["l"] = hand_index
             else:
-                if -70 <= hands_temp[hand_index] < 110:
+                if -10 <= hands_temp[hand_index] < 170:
                     self.hands["p1"]["r"] = hand_index
                 else:
                     self.hands["p2"]["r"] = hand_index
@@ -254,7 +255,7 @@ class Hand:
                 tip[:] = hl[Hand.THUMB_INDICES[0]].x, hl[Hand.THUMB_INDICES[0]].y, hl[Hand.THUMB_INDICES[0]].z
                 # pip[:] = hl[Hand.FINGER_INDICES[0][1]].x, hl[Hand.FINGER_INDICES[0][1]].y
                 i_mcp[:] = hl[Hand.FINGER_INDICES[0][2]].x, hl[Hand.FINGER_INDICES[0][2]].y, hl[Hand.FINGER_INDICES[0][2]].z
-                m_mcp[:] = hl[Hand.FINGER_INDICES[1][2]].x, hl[Hand.FINGER_INDICES[0][2]].y, hl[Hand.FINGER_INDICES[0][2]].z
+                m_mcp[:] = hl[Hand.FINGER_INDICES[1][2]].x, hl[Hand.FINGER_INDICES[1][2]].y, hl[Hand.FINGER_INDICES[1][2]].z
                 
                 #   normal vector of reference plane
                 n_ref = np.cross(m_mcp,i_mcp)
@@ -403,3 +404,7 @@ class Hand:
             pass
             
         return annotated_image
+    def get_current_gp(self, buffered=True):
+        if buffered and self.max_buffer > 0:
+            return deepcopy(self.game_position_buffered)
+        return deepcopy(self.game_position)

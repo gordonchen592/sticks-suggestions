@@ -26,7 +26,7 @@ while True:
     success, img = cap.read()
     
     hand.find_hands(img)
-    img = hand.draw_on_image(img,draw_landmarks=False, draw_count=True,draw_player=True, draw_handedness=True, draw_gp_position=True)
+    img = hand.draw_on_image(img,draw_landmarks=True, draw_count=True,draw_player=True, draw_handedness=True, draw_gp_position=True)
     
     cv2.imshow('image', img)
     

@@ -1,8 +1,6 @@
+import cv2
 import sticks_suggestions.algorithm as algorithm
 import sticks_suggestions.hands as hands
-import sticks_suggestions.suggest as suggest
-
-import cv2
 
 if __name__ == '__main__':
     # hand detection setup
@@ -15,8 +13,7 @@ if __name__ == '__main__':
     game_position = None
     
     # algorithm setup
-    algo = algorithm.Algorithm()
-    suggested_move = None
+    algo = algorithm.Algorithm(tt_path="tt.pickle",max_depth=10)
     
     # camera setup
     cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
@@ -34,24 +31,25 @@ if __name__ == '__main__':
         
         # find hands, calculate the current game position, draw position on image
         hand.find_hands(img)
-        img = hand.draw_on_image(img, draw_count=True,draw_player=True, draw_handedness=True)
+        img = hand.draw_on_image(img, draw_landmarks=True, draw_count=True,draw_player=True, draw_handedness=True)
         
         # if game position changed, find next best move
-        if not game_position == hand.game_position_buffered:
-            game_position = hand.game_position_buffered
+        if not game_position == hand.get_current_gp():
+            game_position = hand.get_current_gp()
             algo.get_best_move(game_position,'p1')
         
         # if the suggested move has changed, show new suggestion
-        if not suggested_move == algo.suggested_move:
-            suggested_move = algo.suggested_move
-            print(suggested_move)
+        if algo.suggested_move:
+            print(f"{algo.gp_for_suggested}: {algo.suggested_move}")
+            algo.suggested_move = []
         
         cv2.imshow('image', img)
         
         if cv2.waitKey(1) == ord('q'):
             print("'q' pressed, exiting")
-            break
-    
+            break 
+       
+    algo.save_tt()
     # release all assets
     cap.release()
     cv2.destroyAllWindows()
