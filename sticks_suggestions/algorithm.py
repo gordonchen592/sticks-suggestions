@@ -38,7 +38,7 @@ class Sim_Game:
         Returns a list of the possible moves for the current game position in a string format.
     '''
     
-    def __init__(self, hand_dict={"p1":{"l":1, "r":1}, "p2":{"l":1, "r":1}}, player_turn="p1"):
+    def __init__(self, hand_dict:dict={"p1":{"l":1, "r":1}, "p2":{"l":1, "r":1}}, player_turn:str="p1"):
         '''
         Constructs the attributes for the sim_game object
         
@@ -61,7 +61,7 @@ class Sim_Game:
             self.player_turn = "p1"
             self.player_turn_next = "p2"
 
-    def switch_turn(self, player_turn=None):
+    def switch_turn(self, player_turn:str=None):
         '''
         Toggles which player performs the next move command and which player is after that move. Can also be used to set the player given player string.
         
@@ -76,7 +76,7 @@ class Sim_Game:
         else:
             self.player_turn, self.player_turn_next = self.player_turn_next, self.player_turn
     
-    def update_position(self, hand_dict_, player_turn=None):
+    def update_position(self, hand_dict_:dict, player_turn:str=None):
         '''
         Sets the game position to the given position dictionary.
         
@@ -91,7 +91,7 @@ class Sim_Game:
         if player_turn:
             self.switch_turn(player_turn)
     
-    def move(self,used_hand=None, target_hand=None, rh_val=None, type="tap"):
+    def move(self,used_hand:str=None, target_hand:str=None, rh_val:int=None, type:str="tap") -> bool:
         '''
         Calculates the intended move and performs it. Then, if move is valid, switches the player's turn.
 
@@ -107,7 +107,7 @@ class Sim_Game:
                 The type of move. {"tap","split"} (Default is "tap")
         Returns
         -------
-            boolean
+            bool
                 True if a valid move is made
                 False if an invalid move is made
         '''
@@ -141,13 +141,13 @@ class Sim_Game:
                 return True
             else:
                 return False
-    def is_p1_win(self):
+    def is_p1_win(self) -> bool:
         return self.hand_dict['p2']['l'] == self.hand_dict['p2']['r'] == 0
-    def is_p2_win(self):
+    def is_p2_win(self) -> bool:
         return self.hand_dict['p1']['l'] == self.hand_dict['p1']['r'] == 0
-    def is_end(self):
+    def is_end(self) -> bool:
         return self.is_p1_win() or self.is_p2_win()
-    def get_gp_as_str(self):
+    def get_gp_as_str(self) -> str:
         '''
         Returns the current game position as a string in the xxxx format.
 
@@ -158,7 +158,7 @@ class Sim_Game:
                 From left to right, the digits represent: player 1's left hand, player 1's right hand, player 2's left hand, player 2's right hand. In short hand: [P1L][P1R][P2L][P2R].
         '''
         return str(self.hand_dict['p1']['l']) + str(self.hand_dict['p1']['r']) + str(self.hand_dict['p2']['l']) + str(self.hand_dict['p2']['r'])
-    def get_possible_moves(self):
+    def get_possible_moves(self) -> list:
         '''
         Returns a list of the possible moves for the current game position in a string format.
 
@@ -226,7 +226,7 @@ class Algorithm:
     LOWERBOUND,EXACT,UPPERBOUND = -1,0,1
     inf = float('infinity')
     
-    def __init__(self, tt_path, max_depth):
+    def __init__(self, tt_path:str, max_depth:int):
         self.tt_path = tt_path
         self.max_depth = max_depth
         self.suggested_move = []
@@ -252,7 +252,7 @@ class Algorithm:
         with open(self.tt_path, 'wb') as f:
             pickle.dump(self.tt, f)
     
-    def get_best_move(self, hand_dict=None, player_turn=None, async_=True):
+    def get_best_move(self, hand_dict:dict=None, player_turn:str=None, async_:bool=True) -> bool|list:
         '''
         Commands the algorithm to find the next best move for player 1 based on the game position. Can be called asynchronously.
         
@@ -262,8 +262,15 @@ class Algorithm:
                     Example: {"p1":{"l":1, "r":1}, "p2":{"l":1, "r":1}}
                 player_turn : str, optional
                     the player whose turn it should be when searching the next move {"p1","p2",None} (Default is None which uses player 1).
-                async_ : boolean, optional
+                async_ : bool, optional
                     whether to search asynchronously or not (Default is True)
+            
+            Returns
+                bool
+                    False if asyncronous but an existing calculation has not completed yet
+                    True if asyncronous and the existing calculation was started successfully
+                list
+                    A list containing the suggested move commands in the format [move, **move_parameters] where the move and move_parameters fit the Sim_Game class move() function. Only when running in non-async mode
         '''
         if async_:
             if not (self.negamax_thread and self.negamax_thread.is_alive()):
@@ -273,16 +280,18 @@ class Algorithm:
                     self.sg.switch_turn(player_turn)
                 self.negamax_thread = threading.Thread(target=self.negamax,args=(deepcopy(self.sg),self.max_depth,),kwargs={"color":1 if self.sg.player_turn=="p1" else -1})
                 self.negamax_thread.start()
+                return True
             else:
-                return
+                return False
         else:
             if hand_dict:
                 self.sg.update_position(hand_dict)
             if player_turn:
                 self.sg.switch_turn(player_turn)
             self.negamax(self.sg,self.max_depth)
+            return self.suggested_move
     
-    def negamax(self, s_game:Sim_Game, depth, alpha=-inf, beta=inf, color=1):
+    def negamax(self, s_game:Sim_Game, depth:int, alpha:float=-inf, beta:float=inf, color:float=1) -> int|float:
         '''
         Converted from the [Wikipedia page for Negamax with alpha-beta pruning and transposition tables](https://en.wikipedia.org/wiki/Negamax#Negamax_with_alpha_beta_pruning_and_transposition_tables)
         '''

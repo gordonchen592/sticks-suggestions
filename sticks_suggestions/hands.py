@@ -15,11 +15,11 @@ class Hand:
     Attributes
     ----------
     model_path : str
-        the path to the hand landmarker model
+        The path to the hand landmarker model.
     running_mode : mp.tasks.vision.RunningMode
-        the mediapipe running mode, {IMAGE, VIDEO, LIVESTREAM}
+        The mediapipe running mode, {IMAGE, VIDEO, LIVESTREAM}.
     num_hands : int
-        the maximum number of hands to detect
+        The maximum number of hands to detect.
     min_hand_detection_confidence : float
         The minimum confidence score for the hand detection to be considered successful in palm detection model.
     min_hand_presence_confidence : float
@@ -27,36 +27,38 @@ class Hand:
     min_tracking_confidence : float
         The minimum confidence score for the hand tracking to be considered successful. This is the bounding box IoU threshold between hands in the current frame and the last frame.
     result : mp.tasks.vision.HandLandmarkerResult
-        The mediapipe hand landmark result containing information about the hand landmarks
+        The mediapipe hand landmark result containing information about the hand landmarks.
     hands : dict
-        A dictionary containing the indices in the mediapipe handlandmaker result corresponding to each hand in game
+        A dictionary containing the indices in the mediapipe handlandmaker result corresponding to each hand in game.
     game_position : dict
-        the current game position, updated asynchronously
+        The current game position, updated asynchronously.
         Example: {"p1": {"l": 1, "r": 1}, "p2": {"l": 1, "r": 1}}
     max_buffer : int
-        the maximum game position entries to keep in the buffer
+        The maximum game position entries to keep in the buffer.
     gp_buffer : np.array
-        the buffer containing past game position entries. Used to calculate a de-noised game position
+        The buffer containing past game position entries. Used to calculate a de-noised game position.
     gp_buffer_threshold : float
-        the number of entries in the buffer to be considered a valid de-noised game position
+        The number of entries in the buffer to be considered a valid de-noised game position.
     gp_buffer_index : int
-        the current index in the buffer. Used for adding entries to the buffer
+        The current index in the buffer. Used for adding entries to the buffer.
     game_position_buffered : dict
-        the game position after denoising
+        The game position after denoising.
         Example: {"p1": {"l": 1, "r": 1}, "p2": {"l": 1, "r": 1}}
     
     Methods
     -------
     create_landmarker():
-        Creates a hand landmarker object for use in detecting hand landmarks
+        Creates a hand landmarker object for use in detecting hand landmarks.
     find_hands(img, video_timestamp):
         Given an image, returns a dictionary containing the current game position.
     calc_game_position(result):
         Calculates the current game position given the mediapipe handlandmarker result data.
     update_game_position_buffer(game_pos):
-        Updates the game position buffer at the current buffer index using the given game position dictionary.
-    update_game_position_buffer_index():
-        Increments the game position buffer index.
+        Updates the game position buffer at the current buffer index using the given game position dictionary. Then, updates the buffer index and determines the de-noised buffered game position.
+    update_game_position_buffer_index(index):
+        Increments the game position buffer index or sets it to the given index.
+    determine_denoised_gp():
+        Calculates the most likely game position based on the values in the buffer and the game position buffer threshold.
     close_landmarker():
         Closes the hand landmarker object.
     draw_on_image(rgb_image, detection_result, draw_landmarks, draw_count, ...)
@@ -88,7 +90,7 @@ class Hand:
         Parameters
         ----------
             model_path : str, optional
-            the path to the hand landmarker model (Default is "models/hand_landmarker.task")
+                the path to the hand landmarker model (Default is "models/hand_landmarker.task")
             running_mode : str, optional
                 the mediapipe running mode, {"IMAGE", "VIDEO", "LIVESTREAM"}, (Default is "LIVESTREAM")
             num_hands : int, optional 
@@ -185,8 +187,9 @@ class Hand:
         
         # if no hands found, return None
         if not result.hand_landmarks:
-            self.update_game_position_buffer(None)
-            self.update_game_position_buffer_index()
+            self.game_position = {"p1": {"l":0, "r":0}, "p2": {"l":0, "r":0}}
+            if self.max_buffer > 0:
+                self.update_game_position_buffer(self.game_position)
             return None
         
         # assign hands to players
@@ -279,18 +282,7 @@ class Hand:
                 self.game_position[player][hand] = count
         
         if self.max_buffer > 0:
-            # update buffer
             self.update_game_position_buffer(self.game_position)
-            self.update_game_position_buffer_index()
-            
-            # determine de-noised game position
-            unq, cnt = np.unique(self.gp_buffer,axis=0,return_counts=True)
-            if cnt[0] > self.gp_buffer_threshold:
-                self.game_position_buffered["p1"]["l"] = unq[0][0]
-                self.game_position_buffered["p1"]["r"] = unq[0][1]
-                self.game_position_buffered["p2"]["l"] = unq[0][2]
-                self.game_position_buffered["p2"]["r"] = unq[0][3]
-
     
     def update_game_position_buffer(self, game_pos):
         if game_pos:
@@ -300,12 +292,28 @@ class Hand:
             self.gp_buffer[self.gp_buffer_index,3] = game_pos["p2"]["r"]
         else:
             self.gp_buffer[self.gp_buffer_index] = [0,0,0,0]
+        
+        self.update_game_position_buffer_index()
+        self.determine_denoised_gp()
+        
+    def update_game_position_buffer_index(self, index=None) -> int:
+        if index:
+            self.gp_buffer_index = index % self.max_buffer
+        else:
+            self.gp_buffer_index += 1
+            if self.gp_buffer_index >= self.max_buffer:
+                self.gp_buffer_index = 0
+        return self.gp_buffer_index
 
-    def update_game_position_buffer_index(self):
-        self.gp_buffer_index += 1
-        if self.gp_buffer_index >= self.max_buffer:
-            self.gp_buffer_index = 0
-
+    def determine_denoised_gp(self) -> dict:
+        unq, cnt = np.unique(self.gp_buffer,axis=0,return_counts=True)
+        if cnt[0] > self.gp_buffer_threshold:
+            self.game_position_buffered["p1"]["l"] = unq[0][0]
+            self.game_position_buffered["p1"]["r"] = unq[0][1]
+            self.game_position_buffered["p2"]["l"] = unq[0][2]
+            self.game_position_buffered["p2"]["r"] = unq[0][3]
+        return self.game_position_buffered
+    
     def close_landmarker(self):
         '''
         Closes the hand landmarker object.
@@ -406,7 +414,7 @@ class Hand:
             pass
             
         return annotated_image
-    def get_current_gp(self, buffered=True):
+    def get_current_gp(self, buffered=True) -> dict:
         if buffered and self.max_buffer > 0:
             return deepcopy(self.game_position_buffered)
         return deepcopy(self.game_position)
