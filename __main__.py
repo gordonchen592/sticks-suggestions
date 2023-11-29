@@ -2,6 +2,11 @@ import cv2
 import sticks_suggestions.algorithm as algorithm
 import sticks_suggestions.hands as hands
 
+VIDEO_INPUT_INDEX = 0
+RESOLUTION = (720,720)
+MAX_DEPTH = 10
+SAVE_TT_TO_FILE = True
+
 if __name__ == '__main__':
     # hand detection setup
     hand = hands.Hand(running_mode="LIVE_STREAM",
@@ -13,12 +18,12 @@ if __name__ == '__main__':
     game_position = None
     
     # algorithm setup
-    algo = algorithm.Algorithm(tt_path="tt.pickle",max_depth=10)
+    algo = algorithm.Algorithm(tt_path="tt.pickle",max_depth=MAX_DEPTH)
     
     # camera setup
-    cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
-    cap.set(cv2.CAP_PROP_FRAME_WIDTH, 720)
-    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
+    cap = cv2.VideoCapture(VIDEO_INPUT_INDEX, cv2.CAP_DSHOW)
+    cap.set(cv2.CAP_PROP_FRAME_WIDTH, RESOLUTION[0])
+    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, RESOLUTION[1])
     
     # wait for camera response
     success, img = cap.read()
@@ -48,8 +53,10 @@ if __name__ == '__main__':
         if cv2.waitKey(1) == ord('q'):
             print("'q' pressed, exiting")
             break 
-       
-    algo.save_tt()
+    
+    if SAVE_TT_TO_FILE:  
+        algo.save_tt()
+    
     # release all assets
     cap.release()
     cv2.destroyAllWindows()
