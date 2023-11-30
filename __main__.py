@@ -4,8 +4,8 @@ import sticks_suggestions.hands as hands
 
 VIDEO_INPUT_INDEX = 0
 RESOLUTION = (720,720)
-MAX_DEPTH = 10
-SAVE_TT_TO_FILE = True
+MAX_DEPTH = 20
+SAVE_TT_TO_FILE = False
 
 if __name__ == '__main__':
     # hand detection setup
@@ -41,7 +41,7 @@ if __name__ == '__main__':
         # if game position changed and not already calculating a move, find next best move
         if not (algo.negamax_thread and algo.negamax_thread.is_alive()) and not game_position == hand.get_current_gp():
             game_position = hand.get_current_gp()
-            algo.get_best_move(game_position,'p1')
+            algo.get_best_move(game_position,"p1")
         
         # if the suggested move has changed, show new suggestion
         if algo.suggested_move:

@@ -11,7 +11,7 @@ algo = Algorithm("tests/tt.pickle",20)
 algo.sg.update_position({"p1":{"l":1, "r":1}, "p2":{"l":1, "r":1}})
 algo.sg.switch_turn("p1")
 
-algo.get_best_move(async_=False)
+algo.get_best_move(async_=False, player_turn='p1')
 
 algo.save_tt()
 

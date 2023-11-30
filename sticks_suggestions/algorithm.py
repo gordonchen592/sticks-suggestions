@@ -276,9 +276,9 @@ class Algorithm:
             if not (self.negamax_thread and self.negamax_thread.is_alive()):
                 if hand_dict:
                     self.sg.update_position(hand_dict)
-                if not player_turn == self.sg.player_turn:
+                if player_turn:
                     self.sg.switch_turn(player_turn)
-                self.negamax_thread = threading.Thread(target=self.negamax,args=(deepcopy(self.sg),self.max_depth,),kwargs={"color":1 if self.sg.player_turn=="p1" else -1})
+                self.negamax_thread = threading.Thread(target=self.negamax,args=(deepcopy(self.sg),self.max_depth,),kwargs={"color":1 if player_turn=="p1" else -1})
                 self.negamax_thread.start()
                 return True
             else:
