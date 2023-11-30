@@ -126,13 +126,13 @@ class Sim_Game:
                 return False
         elif type == "split":
             # no split value specified
-            if not rh_val:
+            if rh_val == None:
                 return False
             # if the resulting count is more than 1 and is not a pass (switching numbers from r to l)
-            if sum(self.hand_dict[self.player_turn].values()) > 1 and self.hand_dict[self.player_turn]["l"] != rh_val:
+            if sum(self.hand_dict[self.player_turn].values()) > 1 and not self.hand_dict[self.player_turn]["l"] == rh_val:
                 sticks_moved = self.hand_dict[self.player_turn]["r"] - rh_val
                 # if no change or both hands end up as zero or left hand requires negative value
-                if sticks_moved == 0 or (sticks_moved + self.hand_dict[self.player_turn]["l"])%5 == rh_val == 0 or sticks_moved + self.hand_dict[self.player_turn]["l"] < 0:
+                if sticks_moved == 0 or ((sticks_moved + self.hand_dict[self.player_turn]["l"])%5 == rh_val == 0) or sticks_moved + self.hand_dict[self.player_turn]["l"] < 0:
                     return False
                 self.hand_dict[self.player_turn]["r"] = rh_val
                 self.hand_dict[self.player_turn]["l"] += sticks_moved
@@ -187,6 +187,7 @@ class Sim_Game:
             # if the resulting count is more than 1 and is not a pass (switching numbers from r to l)
             if sum(self.hand_dict[self.player_turn].values()) > 1 and self.hand_dict[self.player_turn]["l"] != rh_val:
                 sticks_moved = self.hand_dict[self.player_turn]["r"] - rh_val
+                print(self.hand_dict[self.player_turn]["r"])
                 # if no change or both hands end up as zero or left hand requires negative value
                 if sticks_moved == 0 or (sticks_moved + self.hand_dict[self.player_turn]["l"])%5 == rh_val == 0 or sticks_moved + self.hand_dict[self.player_turn]["l"] < 0:
                     continue
@@ -278,7 +279,7 @@ class Algorithm:
                     self.sg.update_position(hand_dict)
                 if player_turn:
                     self.sg.switch_turn(player_turn)
-                self.negamax_thread = threading.Thread(target=self.negamax,args=(deepcopy(self.sg),self.max_depth,),kwargs={"color":1 if player_turn=="p1" else -1})
+                self.negamax_thread = threading.Thread(target=self.negamax, args=(deepcopy(self.sg),self.max_depth),kwargs={'color': 1 if player_turn=='p1' else -1})
                 self.negamax_thread.start()
                 return True
             else:
@@ -288,13 +289,14 @@ class Algorithm:
                 self.sg.update_position(hand_dict)
             if player_turn:
                 self.sg.switch_turn(player_turn)
-            self.negamax(self.sg,self.max_depth)
+            self.negamax(self.sg,self.max_depth, color=1 if player_turn=='p1' else -1)
             return self.suggested_move
     
     def negamax(self, s_game:Sim_Game, depth:int, alpha:float=-inf, beta:float=inf, color:float=1) -> int|float:
         '''
         Converted from the [Wikipedia page for Negamax with alpha-beta pruning and transposition tables](https://en.wikipedia.org/wiki/Negamax#Negamax_with_alpha_beta_pruning_and_transposition_tables)
         '''
+        print(color)
         alpha_orig = alpha
         gp = s_game.get_gp_as_str()
         pt = str(s_game.player_turn)
@@ -335,11 +337,13 @@ class Algorithm:
         hd = deepcopy(s_game.hand_dict)
         for move in child_nodes:
             move_ = move.split(" ")
+            print(s_game_copy.get_gp_as_str(),s_game_copy.player_turn,color,":",str(move_))
             if move_[0] == 'tap':
                 valid = s_game_copy.move(type='tap',used_hand=move_[1],target_hand=move_[2])
             else:
                 valid = s_game_copy.move(type='split',rh_val=int(move_[1]))
             if not valid:
+                print("not valid")
                 s_game_copy.update_position(hd)
                 s_game_copy.switch_turn()
                 continue

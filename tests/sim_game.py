@@ -29,7 +29,6 @@ while not move[0] == 'q':
                 print("Invalid move")
         except:
             print("invalid input or other error")
-    sg.switch_turn()
     
     while not move[0] == 'q':
         print(f"P1: L{sg.hand_dict['p1']['l']} R{sg.hand_dict['p1']['r']}\tP2: L{sg.hand_dict['p2']['l']} R{sg.hand_dict['p2']['r']}")
@@ -47,4 +46,3 @@ while not move[0] == 'q':
                 print("Invalid move")
         except:
             print("invalid input or other error")
-    sg.switch_turn()
