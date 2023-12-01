@@ -43,7 +43,7 @@ while not move[0] == 'q':
             print("You Win!")
             break
         else :
-            print("You Lose...")
+            print("Game Over")
             break
     
     # if its the player's turn
