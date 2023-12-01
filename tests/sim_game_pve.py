@@ -41,14 +41,10 @@ while not move[0] == 'q':
     if algo.sg.is_end():
         if (algo.sg.is_p1_win() and player == 'p1') or (algo.sg.is_p2_win() and player == 'p2'):
             print("You Win!")
-            if SAVE_TT:
-                algo.save_tt()
-            exit()
+            break
         else :
             print("You Lose...")
-            if SAVE_TT:
-                algo.save_tt()
-            exit()
+            break
     
     # if its the player's turn
     if algo.sg.player_turn == player:
@@ -56,9 +52,7 @@ while not move[0] == 'q':
             move = input("Player Intended Move (ex. 'tap l r' or 'split 2'): ").split(" ")
             try:
                 if move[0] == 'q':
-                    if SAVE_TT:
-                        algo.save_tt()
-                    exit()
+                    break
                 elif move[0] == 'tap':
                     valid = algo.sg.move(type='tap',used_hand=move[1],target_hand=move[2])
                 else:
