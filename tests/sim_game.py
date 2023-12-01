@@ -5,6 +5,9 @@ sys.path.append(os.path.realpath(f"{dir_path}/../"))
 
 from sticks_suggestions.algorithm import Sim_Game
 
+# Player vs Player
+# Used for testing the rules of the game.
+
 sg = Sim_Game()
 
 print("Controls:\n\tTapping an Opponent: 'tap [use hand, r/l] [target hand, r/l]'\n\tSplitting: 'split [intended right hand value, int]'\n\tQuitting: 'q'")

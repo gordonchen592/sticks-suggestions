@@ -36,6 +36,13 @@ When calculating the next best move, the algorithm uses the default rules plus t
 * When splitting, players are allowed to eliminate one hand.
 * When splitting, players can rollover via modular arithmetic (modulo 5).
 
+# Additional Usages
+In the Tests folder, there are scripts which use the `hand` and `algorithm` module for the following:
+* `algo.py`: Provides the next best move given a single game position input
+* `hands_test.py`: Shows hand landmark locations and game position using OpenCV and MediaPipe
+* `sim_game_pve.py`: A simulated console based game of chopsticks played against the computer
+* `sim_game.py`: A simulated console based game of chopsticks played against another player within the same console interface
+
 # Additional Resources
 * [Wikipedia: Chopsticks (hand game)](https://en.wikipedia.org/wiki/Chopsticks_(hand_game))
 * [MediaPipe: Hand Landmarking](https://developers.google.com/mediapipe/solutions/vision/hand_landmarker/python)

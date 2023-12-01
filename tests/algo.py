@@ -6,14 +6,27 @@ sys.path.append(os.path.realpath(f"{dir_path}/../"))
 import time
 from sticks_suggestions.algorithm import Algorithm
 
-algo = Algorithm("tests/tt.pickle",4)
-PLAYER = 'p1'
+# testing the algorithm for a single move
 
-algo.sg.update_position({"p1":{"l":1, "r":1}, "p2":{"l":1, "r":1}})
+DEPTH = 20
+SAVE_TT = False
+TT_PATH = "tests/tt.pickle"
+PLAYER = 'p1'
+ASYNC = True
+ASYNC_TIME = 10
+
+algo = Algorithm(TT_PATH,DEPTH)
+
+
+algo.sg.update_position({"p1":{"l":3, "r":3}, "p2":{"l":1, "r":0}})
 algo.sg.switch_turn(PLAYER)
 
-algo.get_best_move(async_=False, player_turn=PLAYER)
-# time.sleep(3)
-# algo.save_tt()
+algo.get_best_move(async_=ASYNC, player_turn=PLAYER)
+
+if ASYNC_TIME:
+    time.sleep(ASYNC_TIME)
+
+if SAVE_TT:
+    algo.save_tt()
 
 print(algo.suggested_move)

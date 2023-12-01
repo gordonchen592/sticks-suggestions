@@ -187,7 +187,6 @@ class Sim_Game:
             # if the resulting count is more than 1 and is not a pass (switching numbers from r to l)
             if sum(self.hand_dict[self.player_turn].values()) > 1 and self.hand_dict[self.player_turn]["l"] != rh_val:
                 sticks_moved = self.hand_dict[self.player_turn]["r"] - rh_val
-                print(self.hand_dict[self.player_turn]["r"])
                 # if no change or both hands end up as zero or left hand requires negative value
                 if sticks_moved == 0 or (sticks_moved + self.hand_dict[self.player_turn]["l"])%5 == rh_val == 0 or sticks_moved + self.hand_dict[self.player_turn]["l"] < 0:
                     continue
@@ -296,7 +295,6 @@ class Algorithm:
         '''
         Converted from the [Wikipedia page for Negamax with alpha-beta pruning and transposition tables](https://en.wikipedia.org/wiki/Negamax#Negamax_with_alpha_beta_pruning_and_transposition_tables)
         '''
-        print(color)
         alpha_orig = alpha
         gp = s_game.get_gp_as_str()
         pt = str(s_game.player_turn)
@@ -327,7 +325,7 @@ class Algorithm:
             elif s_game.is_p2_win():
                 value = -1000
             else:
-                value = 0
+                value = color
             return int(color*value*(1+depth*0.001))
         
         child_nodes = s_game.get_possible_moves()
@@ -337,13 +335,11 @@ class Algorithm:
         hd = deepcopy(s_game.hand_dict)
         for move in child_nodes:
             move_ = move.split(" ")
-            print(s_game_copy.get_gp_as_str(),s_game_copy.player_turn,color,":",str(move_))
             if move_[0] == 'tap':
                 valid = s_game_copy.move(type='tap',used_hand=move_[1],target_hand=move_[2])
             else:
                 valid = s_game_copy.move(type='split',rh_val=int(move_[1]))
             if not valid:
-                print("not valid")
                 s_game_copy.update_position(hd)
                 s_game_copy.switch_turn()
                 continue

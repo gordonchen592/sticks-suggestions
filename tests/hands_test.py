@@ -7,6 +7,8 @@ import cv2
 import mediapipe as mp
 from sticks_suggestions.hands import Hand
 
+# testing the hand landmark and game position recognition
+
 hand = Hand(running_mode="LIVE_STREAM",
             min_hand_detection_confidence=0.3,
             min_hand_presence_confidence=0.3,
